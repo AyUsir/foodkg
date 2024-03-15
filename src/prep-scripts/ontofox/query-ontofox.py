@@ -8,7 +8,7 @@ files = {
     'file': ('ontofox.txt', open(sys.argv[1], 'rb')),
 }
 
-response = requests.post('http://ontofox.hegroup.org/service.php', files=files)
+response = requests.post('https://ontofox.hegroup.org/service.php', files=files)
 
 with open(sys.argv[2], "w") as file:
     file.write(response.text)
