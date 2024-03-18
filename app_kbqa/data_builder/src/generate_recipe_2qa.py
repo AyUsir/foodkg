@@ -14,6 +14,22 @@ def add_qas_id(all_qas, dtype, seed=1234):
     for i, qas in enumerate(all_qas):
         qas['qId'] = '{}-qas-{}-'.format(qas['qType'], dtype) + ('{0:0%sd}' % width).format(i)
 
+def convert_to_standard_unit(quantity, unit):
+    unit_conversion = {
+        "cup": 240,    # Conversion to milliliters
+        "tablespoon": 15,
+        "teaspoon": 5,
+        "lb": 453.592, # Conversion to grams
+        "oz": 28.3495,
+    }
+    
+    if unit in unit_conversion:
+        standard_quantity = eval(quantity) * unit_conversion[unit]
+        return standard_quantity
+    else:
+        return None
+
+
 def generate_simple_qas(kg, kg_keys, simple_qas_templates, p=0.1, seed=1234):
     all_qas = []
     for recipe_uri in kg_keys:
