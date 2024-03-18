@@ -24,8 +24,11 @@ def convert_to_standard_unit(quantity, unit):
     }
     
     if unit in unit_conversion:
-        standard_quantity = eval(quantity) * unit_conversion[unit]
-        return standard_quantity
+        try:
+            standard_quantity = eval(quantity) * unit_conversion[unit]
+            return standard_quantity
+        except:
+            return None
     else:
         return None
 
@@ -33,8 +36,8 @@ def convert_to_standard_unit(quantity, unit):
 def generate_simple_qas(kg, kg_keys, simple_qas_templates, p=0.1, seed=1234):
     all_qas = []
     for recipe_uri in kg_keys:
-        recipe_name = kg[recipe_uri]['name'][0]
-        ingredients = kg[recipe_uri]['neighbors']['contains_ingredients']
+        recipe_name = kg[recipe_uri][recipe_uri]['name'][0]
+        ingredients = kg[recipe_uri][recipe_uri]['neighbors']['contains_ingredients']
         for ingredient in ingredients:
             ingredient = list(ingredient.values())[0]
             ingredient_name = ingredient['name'][0]
@@ -51,22 +54,28 @@ def generate_simple_qas(kg, kg_keys, simple_qas_templates, p=0.1, seed=1234):
             qas['rel_path'] = ['contains_ingredients']
             qas['qText'] = qas_str
             qas['qType'] = 'simple'
+            qas['uri'] = [(recipe_uri, 'recipe'),(ingredient['uri'],'ingredient')]
             all_qas.append(qas)
+            if len(all_qas) == 6000:
+                return all_qas
     return all_qas
 
 def generate_comparision_qas(kg, kg_keys, comparision_qas_templates, p=0.1, seed=1234):
     all_qas = []
+    pair = {}
     ingredient_usage = defaultdict(dict)
     for recipe_uri in kg_keys:
-        recipe_name = kg[recipe_uri]['name'][0]
-        ingredients = kg[recipe_uri]['neighbors']['contains_ingredients']
+        recipe_name = kg[recipe_uri][recipe_uri]['name'][0]
+        ingredients = kg[recipe_uri][recipe_uri]['neighbors']['contains_ingredients']
         for ingredient in ingredients:
             ingredient = list(ingredient.values())[0]
             ingredient_name = ingredient['name'][0]
             quantity = ingredient['quantity']
             unit = ingredient['unit']
-            standard_quantity = covert_to_standard_unit(quantity,unit)
+            standard_quantity = convert_to_standard_unit(quantity,unit)
             ingredient_usage[ingredient_name][recipe_name] = standard_quantity
+            pair[recipe_name] = recipe_uri
+            pair[ingredient_name] = ingredient['uri']
     for ingredient_name , recipes in ingredient_usage.items():
         if len(recipes) < 2:
             continue
@@ -78,17 +87,24 @@ def generate_comparision_qas(kg, kg_keys, comparision_qas_templates, p=0.1, seed
                     continue
                 recipe1,quantity1 = recipe_names[i],quantities[i]
                 recipe2,quantity2 = recipe_names[j],quantities[j]
-                qas_template = np.random.choice(comparision_qas_templates)
+                if not quantity1 or not quantity2:
+                    continue
+                idx = np.random.choice(len(comparision_qas_templates))
+                is_more, qas_template = comparision_qas_templates[idx]
                 qas_str = qas_template.format(s1=recipe1, s2=recipe2,p=ingredient_name)
                 qas = {}
-                qas['answers'] = [recipe1 if quantity1 > quantity2 else recipe2] 
+                qas['answers'] = [recipe1 if quantity1 > quantity2 else recipe2] if is_more else [recipe1 if quantity1 < quantity2 else recipe2]
                 qas['intermediate_answers'] = [[str(quantity1)], [str(quantity2)]]
                 qas['entities'] = [(ingredient_name, 'ingredient'), (recipe1, 'recipe'),(recipe2,'recipe')]
                 qas['topicKey'] = [recipe1, recipe2,ingredient_name]
                 qas['rel_path'] = ['contains_ingredients']
                 qas['qText'] = qas_str
                 qas['qType'] = 'comparison'
+                qas['is_more'] = is_more
+                qas['uri'] = [(pair[ingredient_name], 'ingredient'), (pair[recipe1], 'recipe'),(pair[recipe2],'recipe')]
                 all_qas.append(qas)
+                if len(all_qas) == 6000:
+                    return all_qas
     return all_qas
 
 
@@ -96,12 +112,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-recipe', '--recipe', type=str, help='path to the recipe data')
     parser.add_argument('-o', '--output', required=True, type=str, help='path to the output dir')
-    parser.add_argument('-split_ratio', '--split_ratio', nargs=3, type=float, default=[0.5, 0.2, 0.3], help='split ratio')
+    parser.add_argument('-split_ratio', '--split_ratio', nargs=2, type=float, default=[0.75, 0.25], help='split ratio')
     parser.add_argument('-sampling_prob', '--sampling_prob', default=0.05, type=float, help='sampling prob')
 
     opt = vars(parser.parse_args())
 
-    train_ratio, valid_ratio, test_ratio = opt['split_ratio']
+    train_ratio,  test_ratio = opt['split_ratio']
     assert sum(opt['split_ratio']) == 1
 
     np.random.seed(1234)
@@ -121,25 +137,22 @@ if __name__ == '__main__':
 
 
     train_size = int(len(qas) * train_ratio)
-    valid_size = int(len(qas) * valid_ratio)
-    test_size = len(qas) - train_size - valid_size
+    test_size = len(qas) - train_size
 
     np.random.shuffle(qas)
 
 
     train_qas = qas[:train_size]
-    valid_qas = qas[train_size:train_size + valid_size]
     test_qas = qas[-test_size:]
 
     add_qas_id(train_qas, 'train')
-    add_qas_id(valid_qas, 'valid')
     add_qas_id(test_qas, 'test')
 
     print('{} simple questions'.format(len(simple_qas)))
     print('{} comparison questions'.format(len(comparision_qas)))
-
-    dump_ndjson(train_qas, os.path.join(opt['output'], 'train_qas.json'))
-    dump_ndjson(valid_qas, os.path.join(opt['output'], 'valid_qas.json'))
-    dump_ndjson(test_qas, os.path.join(opt['output'], 'test_qas.json'))
-    print('Generated totally {} qas, training size: {}, validation size: {}, test size: {}'.format(train_size + valid_size + test_size, train_size, valid_size, test_size))
+    with open(os.path.join(opt['output'], 'train_qas.json'), 'w', encoding='utf-8') as f:
+        json.dump(train_qas, f, ensure_ascii=False, indent=4)
+    with open(os.path.join(opt['output'], 'test_qas.json'), 'w', encoding='utf-8') as f:
+        json.dump(test_qas, f, ensure_ascii=False, indent=4)
+    print('Generated totally {} qas, training size: {}, test size: {}'.format(train_size  + test_size, train_size, test_size))
     print('Saved qas to {}'.format(opt['output']))
