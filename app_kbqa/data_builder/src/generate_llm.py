@@ -8,7 +8,6 @@ def llm_to_json(json_file,output):
         llm = {}
         llm['instruction'] = "Generate a Logical Form query that retrieves the information corresponding to the given question. \n"
         llm['input'] = f"Question: {{{qas['qText']}}} "
-        llm['output'] = f"{{{qas['s_quantity1']}}}, {{{qas['s_unit1']}}}, {{{qas['s_quantity2']}}}, {{{qas['s_unit2']}}}"
         llm['history'] = []
         if qas['qType'] == 'simple':
             llm['output'] = f"{{{qas['s_quantity']}}}, {{{qas['s_unit']}}}"
