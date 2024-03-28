@@ -12,6 +12,8 @@ def parse_s_expression(s_expr):
             recipe_name = recipe_name_match.group(1)
             ingredient_name = ingredient_name_match.group(1)
             ingredient_name = ingredient_name.replace(" ", "%20")
+            recipe_name = recipe_name.replace("\'","\\\'")
+            recipe_name = recipe_name.replace("\"","\\\\\"")
             return recipe_name, ingredient_name
         else:
             return None, None
@@ -22,6 +24,10 @@ def parse_s_expression(s_expr):
         ingredient_names = re.findall(ingredient_name_pattern, s_expr)
         if recipe_names and ingredient_names:
             ingredient_names[0] = ingredient_names[0].replace(" ", "%20")
+            recipe_names[0] = recipe_names[0].replace("\'","\\\'")
+            recipe_names[0] = recipe_names[0].replace("\"","\\\\\"")
+            recipe_names[2] = recipe_names[2].replace("\'","\\\'")
+            recipe_names[2] = recipe_names[2].replace("\"","\\\\\"")
             return recipe_names[0],recipe_names[2], ingredient_names[0]
         else:
             return None, None, None
@@ -125,7 +131,6 @@ for index, qas in enumerate(data):
                 else:
                     answer_list.append(None)
         except Exception as e:
-            print(e)
             answer_list.append(None)
 with open('qas_dir/predict_qas.json', 'w', encoding='utf-8') as f:
     json.dump(answer_list, f, ensure_ascii=False, indent=4)
