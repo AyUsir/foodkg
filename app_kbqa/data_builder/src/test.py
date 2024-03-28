@@ -14,7 +14,7 @@ for index, qas in enumerate(predict):
         predict_none = predict_none + 1
     total = total + 1
 print(f"total {total} questions")
-print(f"accuracy {correct/total}%")
+print(f"accuracy {100*correct/total}%")
 print(f"predict none  {predict_none}")
 print(f"correct  {correct}")
 print(f"wrong predict {total - correct - predict_none}")
