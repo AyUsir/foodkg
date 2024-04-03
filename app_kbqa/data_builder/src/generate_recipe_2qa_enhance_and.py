@@ -145,7 +145,6 @@ if __name__ == '__main__':
 
     np.random.shuffle(qas)
 
-
     train_qas = qas[:train_size]
     test_qas = qas[-test_size:]
 
