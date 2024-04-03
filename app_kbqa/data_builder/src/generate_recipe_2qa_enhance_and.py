@@ -139,23 +139,13 @@ if __name__ == '__main__':
 
     qas = simple_qas + comparision_qas
 
-
-    train_size = int(len(qas) * train_ratio)
-    test_size = len(qas) - train_size
-
     np.random.shuffle(qas)
 
-    train_qas = qas[:train_size]
-    test_qas = qas[-test_size:]
-
-    add_qas_id(train_qas, 'train')
-    add_qas_id(test_qas, 'test')
+    add_qas_id(qas, 'train')
 
     print('{} simple questions'.format(len(simple_qas)))
     print('{} comparison questions'.format(len(comparision_qas)))
     with open(os.path.join(opt['output'], 'train_qas_and.json'), 'w', encoding='utf-8') as f:
-        json.dump(train_qas, f, ensure_ascii=False, indent=4)
-    with open(os.path.join(opt['output'], 'test_qas_and.json'), 'w', encoding='utf-8') as f:
-        json.dump(test_qas, f, ensure_ascii=False, indent=4)
-    print('Generated totally {} qas, training size: {}, test size: {}'.format(train_size  + test_size, train_size, test_size))
+        json.dump(qas, f, ensure_ascii=False, indent=4)
+
     print('Saved qas to {}'.format(opt['output']))
